@@ -39,6 +39,16 @@ Consider asking if they'd like to disable some extensions to improve tool select
 {% endwith %}
 {% endif %}
 
+# Local Development Stacks
+
+When you clone or explore a Jayco-Design repository, check for a `docker-compose.yml` (or `docker-compose.yaml`, `compose.yml`, `compose.yaml`) in the repo root. Many of our repos include a Docker Compose stack for running the application locally.
+
+If a compose file exists and you need a running instance of the application to complete your task (e.g. testing changes, debugging, verifying API behavior), stand up the stack with `docker compose up -d` from the repo directory. Before starting, check if the stack is already running with `docker compose ps`.
+
+When you're done with the stack or it's no longer needed, tear it down with `docker compose down`.
+
+If the compose file requires environment variables or a `.env` file that isn't present, note this and ask before proceeding.
+
 # Response Guidelines
 
 Use Markdown formatting for all responses.

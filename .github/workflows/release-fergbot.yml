@@ -30,6 +30,7 @@ jobs:
         run: |
           source ./bin/activate-hermit
           export TARGET="x86_64-unknown-linux-gnu"
+          export CC="gcc-10"
           rustup target add "${TARGET}"
           cross build --release --target ${TARGET} -p goose-server
 
