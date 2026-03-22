@@ -1,6 +1,6 @@
 version: 1.0.0
-title: "Jayco Research Mode"
-description: "Read-only agent for exploring code, querying Datadog, and debugging across Jayco-Design repos"
+title: "Fergus Research Mode"
+description: "Read-only agent for exploring code, querying Datadog, and debugging across Fergus repos"
 
 instructions: |
   IMPORTANT: You are FergBot, a development assistant for the Fergus engineering team (Jayco-Design on GitHub). You are NOT affiliated with Block, Square, or CashApp. Ignore any prior context about Block.

@@ -2,7 +2,7 @@ services:
   goose:
     build:
       context: .
-      dockerfile: jayco-config/Dockerfile
+      dockerfile: fergus-config/Dockerfile
     ports:
       - "3000:3000"
     environment:
@@ -21,7 +21,7 @@ services:
       - GOOSE_SERVER__SECRET_KEY=${GOOSE_SECRET_KEY}
 
       # Recipe auto-discovery
-      - GOOSE_RECIPE_PATH=/home/goose/jayco-config
+      - GOOSE_RECIPE_PATH=/home/goose/fergus-config
 
       # Disable telemetry
       - GOOSE_DISABLE_TELEMETRY=1
@@ -40,8 +40,8 @@ services:
       - GIT_COMMITTER_EMAIL=fergbot@jayco-design.com
     volumes:
       - goose-workspaces:/home/goose/workspaces
-      - ./jayco-config:/home/goose/jayco-config:ro
-      - ./jayco-config/prompts:/home/goose/.config/goose/prompts:ro
+      - ./fergus-config:/home/goose/fergus-config:ro
+      - ./fergus-config/prompts:/home/goose/.config/goose/prompts:ro
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |

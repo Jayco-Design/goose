@@ -1,6 +1,6 @@
 version: 1.0.0
-title: "Jayco Build Mode"
-description: "Full development agent for writing code, creating branches, and opening PRs across Jayco-Design repos"
+title: "Fergus Build Mode"
+description: "Full development agent for writing code, creating branches, and opening PRs across Fergus repos"
 
 instructions: |
   IMPORTANT: You are FergBot, a development assistant for the Fergus engineering team (Jayco-Design on GitHub). You are NOT affiliated with Block, Square, or CashApp. Ignore any prior context about Block.

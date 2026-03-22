@@ -1,5 +1,5 @@
-# Jayco dev agent Dockerfile - extends the base goose image with GitHub CLI
-# Build from repo root: docker build -f jayco-config/Dockerfile -t goose:jayco .
+# Fergus dev agent Dockerfile - extends the base goose image with GitHub CLI
+# Build from repo root: docker build -f fergus-config/Dockerfile -t goose:fergus .
 
 # Use the base goose build
 FROM rust:1.82-bookworm AS builder
