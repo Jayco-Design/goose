@@ -16,29 +16,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install cross
-        run: source ./bin/activate-hermit && cargo install cross --git https://github.com/cross-rs/cross
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libxcb1-dev libxcb-util-dev protobuf-compiler libdbus-1-dev
+
+      - name: Setup Rust
+        run: source ./bin/activate-hermit && rustup show
 
       - name: Cache Cargo artifacts
         uses: Swatinem/rust-cache@v2
-        with:
-          key: x86_64-unknown-linux-gnu-goosed
 
       - name: Build goosed
-        env:
-          CROSS_NO_WARNINGS: 0
         run: |
           source ./bin/activate-hermit
-          export TARGET="x86_64-unknown-linux-gnu"
-          export CC="gcc-10"
-          rustup target add "${TARGET}"
-          cross build --release --target ${TARGET} -p goose-server
+          cargo build --release -p goose-server
 
       - name: Package
         run: |
-          export TARGET="x86_64-unknown-linux-gnu"
           mkdir -p staging
-          cp "target/${TARGET}/release/goosed" staging/
+          cp target/release/goosed staging/
           tar -cjf goosed-x86_64-linux.tar.bz2 -C staging .
 
       - name: Release
