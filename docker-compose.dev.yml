@@ -1,0 +1,64 @@
+services:
+  goose:
+    build:
+      context: .
+      dockerfile: jayco-config/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      # LLM Provider - Sonnet as worker, Opus as lead for first 3 turns
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOSE_PROVIDER=anthropic
+      - GOOSE_MODEL=claude-sonnet-4-6
+      - GOOSE_LEAD_PROVIDER=anthropic
+      - GOOSE_LEAD_MODEL=claude-opus-4-6
+      - GOOSE_LEAD_TURNS=3
+
+      # Server config
+      - GOOSE_HOST=0.0.0.0
+      - GOOSE_PORT=3000
+      - GOOSE_TLS=false
+      - GOOSE_SERVER__SECRET_KEY=${GOOSE_SECRET_KEY}
+
+      # Recipe auto-discovery
+      - GOOSE_RECIPE_PATH=/home/goose/jayco-config
+
+      # Disable telemetry
+      - GOOSE_DISABLE_TELEMETRY=1
+
+      # Datadog MCP
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_APP_KEY=${DD_APP_KEY}
+
+      # GitHub auth (FergBot PAT - used by both git and gh CLI)
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+
+      # Git identity (FergBot)
+      - GIT_AUTHOR_NAME=FergBot
+      - GIT_AUTHOR_EMAIL=fergbot@jayco-design.com
+      - GIT_COMMITTER_NAME=FergBot
+      - GIT_COMMITTER_EMAIL=fergbot@jayco-design.com
+    volumes:
+      - goose-workspaces:/home/goose/workspaces
+      - ./jayco-config:/home/goose/jayco-config:ro
+      - ./jayco-config/prompts:/home/goose/.config/goose/prompts:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        # Pre-clone common repos for warm start
+        cd /home/goose/workspaces
+        for repo in Fergus fergus-partner-api; do
+          [ -d "$$repo" ] && echo "$$repo already cloned" || gh repo clone Jayco-Design/$$repo &
+        done
+        wait
+        exec /usr/local/bin/goosed agent
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  goose-workspaces:

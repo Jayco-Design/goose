@@ -208,6 +208,37 @@ static LANGUAGES: &[LangInfo] = &[
         },
     },
     LangInfo {
+        name: "php",
+        extensions: &["php", "php3", "php4", "php5", "phtml"],
+        language: || tree_sitter_php::LANGUAGE_PHP.into(),
+        fn_kinds: &["function_definition", "method_declaration"],
+        fn_name_kinds: &["name"],
+        class_kinds: &["class_declaration", "interface_declaration", "trait_declaration", "enum_declaration"],
+        queries: LangQueries {
+            functions: r#"
+                (function_definition name: (name) @name)
+                (method_declaration name: (name) @name)
+            "#,
+            classes: r#"
+                (class_declaration name: (name) @name)
+                (interface_declaration name: (name) @name)
+                (trait_declaration name: (name) @name)
+                (enum_declaration name: (name) @name)
+            "#,
+            imports: r#"
+                (namespace_use_declaration) @path
+            "#,
+            calls: r#"
+                (function_call_expression function: (name) @name)
+                (function_call_expression function: (qualified_name) @name)
+                (member_call_expression name: (name) @name)
+                (scoped_call_expression name: (name) @name)
+                (object_creation_expression (name) @name)
+                (object_creation_expression (qualified_name) @name)
+            "#,
+        },
+    },
+    LangInfo {
         name: "java",
         extensions: &["java"],
         language: || tree_sitter_java::LANGUAGE.into(),
