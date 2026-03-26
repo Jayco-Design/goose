@@ -1,0 +1,130 @@
+name: Deploy FergBot to exe.dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to deploy (e.g. fergbot-v1.0.0)"
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy to exe.dev
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download goosed from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ inputs.release_tag }}" \
+            --pattern 'goosed-x86_64-linux.tar.bz2' \
+            --dir /tmp
+          tar -xjf /tmp/goosed-x86_64-linux.tar.bz2 -C /tmp
+
+      - name: Configure SSH for exe.dev
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EXE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519_exe
+          chmod 600 ~/.ssh/id_ed25519_exe
+          cat >> ~/.ssh/config <<'EOF'
+          Host exe.dev *.exe.xyz
+            IdentitiesOnly yes
+            IdentityFile ~/.ssh/id_ed25519_exe
+            StrictHostKeyChecking no
+          EOF
+
+      - name: Create VM if needed
+        run: |
+          if ! ssh exe.dev ls --json | grep -q '"fergbot"'; then
+            ssh exe.dev new --name fergbot --image exeuntu --no-email
+            echo "Waiting for VM to be ready..."
+            sleep 15
+          fi
+
+      - name: Deploy binary and config
+        env:
+          VM: fergbot.${{ secrets.EXE_USERNAME }}.exe.xyz
+        run: |
+          scp /tmp/goosed ${VM}:~/goosed
+          scp -r fergus-config ${VM}:~/fergus-config
+
+      - name: Write .env
+        env:
+          VM: fergbot.${{ secrets.EXE_USERNAME }}.exe.xyz
+        run: |
+          cat <<ENV | ssh ${VM} 'cat > ~/.env'
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY }}
+          GOOSE_PROVIDER=anthropic
+          GOOSE_MODEL=claude-sonnet-4-6
+          GOOSE_HOST=0.0.0.0
+          GOOSE_PORT=3000
+          GOOSE_TLS=false
+          GOOSE_SERVER__SECRET_KEY=${{ secrets.GOOSE_SECRET_KEY }}
+          GOOSE_DISABLE_TELEMETRY=1
+          GOOSE_RECIPE_PATH=/home/user/fergus-config
+          DD_API_KEY=${{ secrets.DD_API_KEY }}
+          DD_APP_KEY=${{ secrets.DD_APP_KEY }}
+          GITHUB_TOKEN=${{ secrets.FERGBOT_GITHUB_TOKEN }}
+          GIT_AUTHOR_NAME=FergBot
+          GIT_AUTHOR_EMAIL=fergbot@jayco-design.com
+          GIT_COMMITTER_NAME=FergBot
+          GIT_COMMITTER_EMAIL=fergbot@jayco-design.com
+          ENV
+
+      - name: Install Tailscale, deps, and start goosed
+        env:
+          VM: fergbot.${{ secrets.EXE_USERNAME }}.exe.xyz
+          TAILSCALE_AUTH_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          ssh ${VM} bash -s -- "${TAILSCALE_AUTH_KEY}" <<'REMOTE'
+          set -euo pipefail
+          TS_AUTH_KEY="$1"
+
+          # Install Tailscale if not present
+          if ! command -v tailscale &> /dev/null; then
+            curl -fsSL https://tailscale.com/install.sh | sh
+          fi
+
+          # Connect to tailnet if not already connected
+          if ! sudo tailscale status &> /dev/null; then
+            sudo tailscale up --authkey="${TS_AUTH_KEY}" --hostname=fergbot
+          fi
+
+          # Install gh CLI if not present
+          if ! command -v gh &> /dev/null; then
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+              | sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+              | sudo tee /etc/apt/sources.list.d/github-cli.list
+            sudo apt-get update && sudo apt-get install -y gh
+          fi
+
+          chmod +x ~/goosed
+
+          # Stop existing goosed if running
+          pkill goosed || true
+          sleep 1
+
+          # Start goosed with env vars
+          set -a; source ~/.env; set +a
+          nohup ~/goosed agent > ~/goosed.log 2>&1 &
+
+          sleep 3
+          if curl -sf http://localhost:3000/status > /dev/null; then
+            echo "goosed is running on tailnet as 'fergbot'"
+          else
+            echo "goosed may have failed to start:"
+            tail -20 ~/goosed.log
+            exit 1
+          fi
+          REMOTE
+
+      - name: Disable exe.dev HTTP proxy
+        run: |
+          # No public or shared HTTP access — traffic only via Tailscale
+          ssh exe.dev share set-private fergbot 2>/dev/null || true
+          echo "FergBot deployed. Access via tailnet only: http://fergbot:3000"
