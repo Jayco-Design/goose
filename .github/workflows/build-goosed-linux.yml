@@ -26,15 +26,19 @@ name: "Build goosed (Linux)"
 jobs:
   build-goosed-linux:
     name: Build goosed (${{ matrix.architecture }})
-    runs-on: ubuntu-x86-16core-64gb
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - architecture: x86_64
             target: x86_64-unknown-linux-gnu
+            runner: ubuntu-x86-16core-64gb
+            use-cross: true
           - architecture: aarch64
             target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+            use-cross: false
 
     steps:
       - name: Checkout repository
@@ -60,6 +64,7 @@ jobs:
           echo "RUSTUP_HOME=$RUSTUP_HOME" >> $GITHUB_ENV
 
       - name: Install cross
+        if: matrix.use-cross
         run: source ./bin/activate-hermit && cargo install cross --git https://github.com/cross-rs/cross
 
       - name: Cache Rust dependencies
@@ -67,17 +72,23 @@ jobs:
         with:
           key: goosed-${{ matrix.architecture }}-linux
 
-      - name: Build goosed
+      - name: Build goosed (cross)
+        if: matrix.use-cross
         env:
           CROSS_NO_WARNINGS: 0
-          RUST_LOG: debug
           RUST_BACKTRACE: 1
-          CROSS_VERBOSE: 1
           CC: gcc-10
         run: |
           source ./bin/activate-hermit
           rustup target add "${{ matrix.target }}"
           cross build --release --target ${{ matrix.target }} -p goose-server
+
+      - name: Build goosed (native)
+        if: ${{ !matrix.use-cross }}
+        run: |
+          source ./bin/activate-hermit
+          rustup target add "${{ matrix.target }}"
+          cargo build --release --target ${{ matrix.target }} -p goose-server
 
       - name: Package goosed binary
         run: |
