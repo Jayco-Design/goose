@@ -1,0 +1,105 @@
+# Reusable workflow that builds standalone goosed (server) binaries for Linux.
+# Produces goosed-{arch}-linux.tar.bz2 artifacts for x86_64 and aarch64.
+# Used by release.yml and canary.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to set for the build (optional)'
+        required: false
+        default: ""
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to set for the build'
+        required: false
+        default: ""
+        type: string
+      ref:
+        type: string
+        required: false
+        default: ''
+
+name: "Build goosed (Linux)"
+
+jobs:
+  build-goosed-linux:
+    name: Build goosed (${{ matrix.architecture }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86_64
+            target: x86_64-unknown-linux-gnu
+            runner: ubuntu-x86-16core-64gb
+            use-cross: true
+          - architecture: aarch64
+            target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+            use-cross: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Update version in Cargo.toml
+        if: ${{ inputs.version != '' }}
+        run: |
+          sed -i.bak 's/^version = ".*"/version = "'${{ inputs.version }}'"/' Cargo.toml
+          rm -f Cargo.toml.bak
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential protobuf-compiler
+
+      - name: Activate hermit
+        run: |
+          source bin/activate-hermit
+          echo "CARGO_HOME=$CARGO_HOME" >> $GITHUB_ENV
+          echo "RUSTUP_HOME=$RUSTUP_HOME" >> $GITHUB_ENV
+
+      - name: Install cross
+        if: matrix.use-cross
+        run: source ./bin/activate-hermit && cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5  # v2.8.2
+        with:
+          key: goosed-${{ matrix.architecture }}-linux
+
+      - name: Build goosed (cross)
+        if: matrix.use-cross
+        env:
+          CROSS_NO_WARNINGS: 0
+          RUST_BACKTRACE: 1
+          CC: gcc-10
+        run: |
+          source ./bin/activate-hermit
+          rustup target add "${{ matrix.target }}"
+          cross build --release --target ${{ matrix.target }} -p goose-server
+
+      - name: Build goosed (native)
+        if: ${{ !matrix.use-cross }}
+        run: |
+          source ./bin/activate-hermit
+          rustup target add "${{ matrix.target }}"
+          cargo build --release --target ${{ matrix.target }} -p goose-server
+
+      - name: Package goosed binary
+        run: |
+          mkdir -p target/${{ matrix.target }}/release/goosed-package
+          cp target/${{ matrix.target }}/release/goosed target/${{ matrix.target }}/release/goosed-package/
+          cd target/${{ matrix.target }}/release
+          tar -cjf "goosed-${{ matrix.architecture }}-linux.tar.bz2" -C goosed-package .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
+        with:
+          name: goosed-${{ matrix.architecture }}-linux
+          path: target/${{ matrix.target }}/release/goosed-${{ matrix.architecture }}-linux.tar.bz2
+          if-no-files-found: error

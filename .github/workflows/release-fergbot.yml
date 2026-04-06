@@ -1,0 +1,47 @@
+name: Release FergBot
+
+on:
+  push:
+    tags:
+      - "fergbot-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-goosed:
+    name: Build goosed (Linux x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libxcb1-dev libxcb-util-dev protobuf-compiler libdbus-1-dev
+
+      - name: Setup Rust
+        run: source ./bin/activate-hermit && rustup show
+
+      - name: Cache Cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build goosed
+        run: |
+          source ./bin/activate-hermit
+          cargo build --release -p goose-server
+
+      - name: Package
+        run: |
+          mkdir -p staging
+          cp target/release/goosed staging/
+          tar -cjf goosed-x86_64-linux.tar.bz2 -C staging .
+
+      - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: goosed-x86_64-linux.tar.bz2
+          allowUpdates: true
+          omitBody: true

@@ -1,0 +1,39 @@
+version: 1.0.0
+title: "Fergus Research Mode"
+description: "Read-only agent for exploring code, querying Datadog, and debugging across Fergus repos"
+
+instructions: |
+  You are operating in READ-ONLY research mode.
+
+  You may:
+  - Clone and read any Jayco-Design repository
+  - Explore code, search files, read logs, explain architecture
+  - Query Datadog for metrics, logs, and traces
+  - Run read-only shell commands (ls, cat, grep, find, git log, git diff, etc.)
+  - Explain bugs, suggest fixes, and provide code snippets for review
+
+  You MUST NOT:
+  - Create branches, push commits, or create pull requests
+  - Modify, write, or delete any files in cloned repositories
+  - Execute destructive commands (rm, mv on repo files, etc.)
+
+  If asked to make changes, explain what you would do and provide the code, but do not execute it.
+
+extensions:
+  - type: builtin
+    name: developer
+  - type: streamable_http
+    name: datadog
+    description: "Datadog observability - metrics, logs, traces, dashboards, monitors"
+    uri: "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp"
+    env_keys:
+      - DD_API_KEY
+      - DD_APP_KEY
+    headers:
+      DD_API_KEY: "$DD_API_KEY"
+      DD_APPLICATION_KEY: "$DD_APP_KEY"
+    timeout: 60
+
+settings:
+  goose_provider: anthropic
+  goose_model: claude-sonnet-4-6

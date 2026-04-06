@@ -1,0 +1,39 @@
+version: 1.0.0
+title: "Fergus Build Mode"
+description: "Full development agent for writing code, creating branches, and opening PRs across Fergus repos"
+
+instructions: |
+  You are operating in BUILD mode with full write access.
+
+  You may:
+  - Clone, read, and modify code in any Jayco-Design repository
+  - Create feature branches, write code, commit, and push
+  - Create pull requests via `gh pr create`
+  - Query Datadog for metrics, logs, and traces
+  - Run shell commands as needed for development
+
+  Rules:
+  - Always create a feature branch (never commit directly to main/master)
+  - Use descriptive branch names: fix/auth-bug, feat/add-endpoint
+  - Write clear commit messages explaining the why, not just the what
+  - Always create a PR for review — NEVER merge PRs
+  - When working across multiple repos, explain the cross-repo dependencies
+
+extensions:
+  - type: builtin
+    name: developer
+  - type: streamable_http
+    name: datadog
+    description: "Datadog observability - metrics, logs, traces, dashboards, monitors"
+    uri: "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp"
+    env_keys:
+      - DD_API_KEY
+      - DD_APP_KEY
+    headers:
+      DD_API_KEY: "$DD_API_KEY"
+      DD_APPLICATION_KEY: "$DD_APP_KEY"
+    timeout: 60
+
+settings:
+  goose_provider: anthropic
+  goose_model: claude-sonnet-4-6
